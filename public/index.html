@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>دردشة WebSocket بسيطة</title>
+    <style>
+      body { font-family: system-ui, Arial; background:#0b1220; color:#e5e7eb; margin:0; }
+      .wrap { max-width: 900px; margin: 24px auto; padding: 0 12px; }
+      .card { background:#111a2e; border:1px solid #24324f; border-radius:14px; padding:14px; }
+      .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+      input, button { border-radius:10px; border:1px solid #2b3a5c; background:#0b1220; color:#e5e7eb; padding:10px 12px; }
+      button { cursor:pointer; background:#1f2a44; }
+      button:hover { filter:brightness(1.1); }
+      #log { height: 420px; overflow:auto; padding:12px; background:#0b1220; border-radius:12px; border:1px solid #24324f; }
+      .msg { margin: 8px 0; }
+      .sys { color:#93c5fd; }
+      .me { color:#86efac; }
+      small { color:#94a3b8; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="row">
+          <input id="name" placeholder="اسمك" style="width:180px" />
+          <button id="setName">تعيين الاسم</button>
+
+          <span id="status"><small>الحالة: ...</small></span>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div id="log"></div>
+
+        <div style="height:12px"></div>
+
+        <div class="row">
+          <input id="text" placeholder="اكتب رسالة واضغط Enter" style="flex:1; min-width: 220px;" />
+          <button id="send">إرسال</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const log = $("log");
+      const statusEl = $("status");
+      const nameInput = $("name");
+      const textInput = $("text");
+
+      function addLine(html) {
+        const div = document.createElement("div");
+        div.className = "msg";
+        div.innerHTML = html;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      const ws = new WebSocket(`ws://${location.host}`);
+
+      ws.addEventListener("open", () => {
+        statusEl.innerHTML = "<small>الحالة: متصل ✅</small>";
+        addLine('<span class="sys">تم الاتصال.</span>');
+      });
+
+      ws.addEventListener("close", () => {
+        statusEl.innerHTML = "<small>الحالة: غير متصل ❌</small>";
+        addLine('<span class="sys">انقطع الاتصال.</span>');
+      });
+
+      ws.addEventListener("message", (e) => {
+        let msg;
+        try { msg = JSON.parse(e.data); } catch { return; }
+
+        if (msg.type === "system") {
+          addLine(`<span class="sys">[نظام] ${escapeHtml(msg.text)}</span>`);
+        } else if (msg.type === "chat") {
+          const myName = nameInput.value.trim();
+          const isMe = myName && msg.name === myName;
+          const cls = isMe ? "me" : "";
+          const t = new Date(msg.ts || Date.now()).toLocaleTimeString();
+          addLine(`<span class="${cls}"><b>${escapeHtml(msg.name)}</b>: ${escapeHtml(msg.text)} <small>(${t})</small></span>`);
+        }
+      });
+
+      function sendChat() {
+        const text = textInput.value.trim();
+        if (!text) return;
+        ws.send(JSON.stringify({ type: "chat", text }));
+        textInput.value = "";
+        textInput.focus();
+      }
+
+      $("send").onclick = sendChat;
+      textInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendChat();
+      });
+
+      $("setName").onclick = () => {
+        const name = nameInput.value.trim();
+        if (!name) return;
+        ws.send(JSON.stringify({ type: "set_name", name }));
+        textInput.focus();
+      };
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+          "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+        }[c]));
+      }
+    </script>
+  </body>
+</html>
