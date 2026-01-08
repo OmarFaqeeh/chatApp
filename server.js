@@ -54,11 +54,11 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
-    broadcast({ type: "system", text: `خرج ${ws.user.name}` });
+    broadcast({ type: "system", text: `out ${ws.user.name}` });
   });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Open http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
